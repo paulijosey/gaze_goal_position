@@ -44,6 +44,8 @@ RUN echo "ulimit -Hn 524388" >> /home/${USERNAME}/.bashrc
 
 # add ros setup file to bashrc for convinience
 RUN echo source /opt/ros/${ROS_DISTRO}/setup.bash >> /home/${USERNAME}/.bashrc
+# add new ros setup to bashrc if it exists
+RUN echo "[ -f /home/ws/install/setup.bash ] && source /home/ws/install/setup.bash" >> /home/${USERNAME}/.bashrc
 
 ENV SHELL /bin/bash
 

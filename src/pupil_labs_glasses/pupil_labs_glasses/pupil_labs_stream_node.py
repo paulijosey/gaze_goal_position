@@ -1,6 +1,21 @@
-from pupil_labs.realtime_api.simple import Device
+# **************************************************************************** #
+#                                                                              #
+#                                                         :::      ::::::::    #
+#    pupil_labs_stream_node.py                          :+:      :+:    :+:    #
+#                                                     +:+ +:+         +:+      #
+#    By: Paul Joseph <paul.joseph@pbl.ee.ethz>      +#+  +:+       +#+         #
+#                                                 +#+#+#+#+#+   +#+            #
+#    Created: 2023/10/04 09:00:11 by Paul Joseph       #+#    #+#              #
+#    Updated: 2023/10/04 15:03:05 by Paul Joseph      ###   ########.fr        #
+#                                                                              #
+# **************************************************************************** #
+
+from pupil_labs.realtime_api import Device, Network, models, receive_video_frames, receive_gaze_data
+import asyncio
 import time
 import cv2 as cv
+import contextlib
+import typing as T
 # ROS imports
 import rclpy
 from rclpy.node import Node
@@ -15,22 +30,24 @@ class SmartGlasses(Node):
     #    | |   / _ \| '_ \/ __| __| | | |/ __| __/ _ \| '__|
     #    | |__| (_) | | | \__ \ |_| |_| | (__| || (_) | |
     #     \____\___/|_| |_|___/\__|\__,_|\___|\__\___/|_|
-    def __init__(self, ip) -> None:
+    def __init__(self, ip='10.5.50.232') -> None:
         super().__init__('PupilLabsStream')
         self.ip = ip
         self.port = 8080  # this might change ... but keep it hardcoded for now
         self.recording_id = ''
 
         # init connection (this will init self.device)
-        self.neon_companion_network_conf()
+        asyncio.run(self.neon_companion_network_conf())
+        # Get device status and info (this will init self.cam_outward & self.gaze)
+        asyncio.run(self.get_neon_companion_info())
 
         # init ROS stuff
         #   use cv bridge to handle cv2 to ROS convertion
         self.cv_bridge = CvBridge()
         #   publisher for pretty pictures
-        self.cam_outward_pub = self.create_publisher(Image, 'cam_outward', 10)
+        self.cam_outward_pub = self.create_publisher(Image, '~/cam_outward', 10)
         #   publisher for the gaze data
-        self.gaze_pub = self.create_publisher(Point, 'gaze', 10)
+        self.gaze_pub = self.create_publisher(Point, '~/gaze', 10)
 
     #    _   _      _                      _    _
     #   | \ | | ___| |___      _____  _ __| | _(_)_ __   __ _
@@ -39,14 +56,21 @@ class SmartGlasses(Node):
     #   |_| \_|\___|\__| \_/\_/ \___/|_|  |_|\_\_|_| |_|\__, |
     #                                                   |___/
 
-    def neon_companion_network_conf(self) -> None:
+    async def neon_companion_network_conf(self) -> None:
         '''
         Connect this python instance to the host device (aka phone)
+        This function will try to detect a pupil labs device on 
+        the network. If it fails it will revert back to the manual 
+        ip address given.
         '''
-        self.device = Device(address=self.ip, port=self.port)
+        async with Network() as network:
+            self.device = await network.wait_for_new_device(timeout_seconds=5)
+
         if self.device is None:
-            print("No device found.")
-            raise SystemExit(-1)
+            print("No device found. Using given IP for manual override")
+            self.device = models.DiscoveredDeviceInfo('test', 'neon.local', 
+                                                      self.port, [self.ip])
+            # Device(address=self.ip, port=self.port)
 
     def close_neon_companion_connection(self) -> None:
         '''
@@ -59,88 +83,65 @@ class SmartGlasses(Node):
     # \___ \| __/ _` | __| | | / __|
     #  ___) | || (_| | |_| |_| \__ \
     # |____/ \__\__,_|\__|\__,_|___/
-    def print_neon_companion_info(self) -> None:
+    async def get_neon_companion_info(self) -> None:
         '''
-        Print all information about the host device (aka phone)
+        Print all information about the host device (aka phone).
+        Needs to be called during init! 
         '''
-        print(f"Phone IP address: {self.device.phone_ip}")
-        print(f"Phone name: {self.device.phone_name}")
-        print(f"Phone unique ID: {self.device.phone_id}")
+        async with Device.from_discovered_device(self.device) as device:
+            status = await device.get_status()
+            print(f"Phone IP address: {status.phone.ip}")
+            print(f"Battery level: {status.phone.battery_level}%")
 
-        print(f"Battery level: {self.device.battery_level_percent}%")
-        print(f"Battery state: {self.device.battery_state}")
-
-        print(f"Free storage: {self.device.memory_num_free_bytes / 1024**3}GB")
-        print(f"Storage level: {self.device.memory_state}")
-
-        print(f"Connected glasses: SN {self.device.serial_number_glasses}")
-        print(
-            f"Connected scene camera: SN {self.device.serial_number_scene_cam}")
-
-    #   ____            _             _
-    #  / ___|___  _ __ | |_ _ __ ___ | |
-    # | |   / _ \| '_ \| __| '__/ _ \| |
-    # | |__| (_) | | | | |_| | | (_) | |
-    #  \____\___/|_| |_|\__|_|  \___/|_|
-    def start_recording(self) -> None:
-        '''
-        Start recording on an already connected device
-        '''
-        self.recording_id = self.device.recording_start()
-
-    def stop_recording(self) -> None:
-        '''
-        Stop recording on an already connected device
-        and reset the recording id to ''
-        '''
-        self.device.recording_stop_and_save()
-        self.recording_id = ''
+            print(f"Connected glasses: SN {status.hardware.glasses_serial}")
+            print(f"Connected scene camera: SN {status.hardware.world_camera_serial}")
     
-    def record(self, timespan) -> None:
-        '''
-        Record for a given timespan 
-        '''
-        self.start_recording()
-        time.sleep(timespan)
-        self.stop_recording()
+            self.cam_outward = status.direct_world_sensor()
+            print(f"World sensor: connected={self.cam_outward.connected} url={self.cam_outward.url}")
+    
+            self.gaze = status.direct_gaze_sensor()
+            print(f"Gaze sensor: connected={self.gaze.connected} url={self.gaze.url}")
 
-    def stream_gaze(self) -> None:
+    #   ____        _          ____  _                                
+    #  |  _ \  __ _| |_ __ _  / ___|| |_ _ __ ___  __ _ _ __ ___  ___ 
+    #  | | | |/ _` | __/ _` | \___ \| __| '__/ _ \/ _` | '_ ` _ \/ __|
+    #  | |_| | (_| | || (_| |  ___) | |_| | |  __/ (_| | | | | | \__ \
+    #  |____/ \__,_|\__\__,_| |____/ \__|_|  \___|\__,_|_| |_| |_|___/
+    async def stream_outward_cam_and_gaze(self) -> None:
         '''
-        Stream Gaze data
+        Stream outward camera and gaze data. This is where the magic happens
         '''
-        try:
-            while True:
-                print(self.device.receive_gaze_datum())
-        except KeyboardInterrupt:
-            pass
+        # init streamer tasks
+        restart_on_disconnect = True
+        queue_cam_outward = asyncio.Queue()
+        queue_gaze = asyncio.Queue()
 
-    def stream_gaze_cam(self) -> None:
-        '''
-        Stream gaze camera
-        '''
+        # get image and gaze data from pupil labs glasses 
+        # and figure out which data entries match
+        process_cam_outward = asyncio.create_task(
+            self.enqueue_sensor_data(
+                receive_video_frames(self.cam_outward.url, run_loop=restart_on_disconnect),
+                queue_cam_outward,
+            )
+        )
+        process_gaze = asyncio.create_task(
+            self.enqueue_sensor_data(
+                receive_gaze_data(self.gaze.url, run_loop=restart_on_disconnect),
+                queue_gaze,
+            )
+        )
         try:
+            # match queues
             while True:
-                bgr_pixels, frame_datetime = self.device.receive_eyes_video_frame()
-                cv.imwrite('/workspace/data/gaze_cam.png', bgr_pixels)
-        except KeyboardInterrupt:
-            pass
-
-    def stream_outward_cam_and_gaze(self) -> None:
-        '''
-        Stream outward camera and gaze data
-        '''
-        try:
-            while True:
-                # get image data and gaze data from pupil labs glasses
-                frame, gaze = self.device.receive_matched_scene_video_frame_and_gaze()
-                # publish them in ros messages
-                #   First handle the outward image
+                video_datetime, frame = await self.get_most_recent_item(queue_cam_outward)
+                _, gaze = await self.get_closest_item(queue_gaze, video_datetime)
+                # publish in ros messages
                 #   frame consists of:
-                #       frame.bgr_pixels 
+                #       frame.bgr_buffer 
                 #       frame.timestamp_unix_sec
-                cam_outward_msg = self.cv_bridge.cv2_to_imgmsg(frame.bgr_pixels, encoding="passthrough")
+                cam_outward_msg = self.cv_bridge.cv2_to_imgmsg(frame.bgr_buffer(), 
+                                                               encoding="passthrough")
                 self.cam_outward_pub.publish(cam_outward_msg)
-                #   Next the gaze info
                 #   Gaze consists of:
                 #       gaze.x
                 #       gaze.y
@@ -150,10 +151,47 @@ class SmartGlasses(Node):
                 gaze_msg.x = gaze.x
                 gaze_msg.y = gaze.y
                 self.gaze_pub.publish(gaze_msg)
+        finally:
+            process_cam_outward.cancel()
+            process_gaze.cancel()
+
+    #   _   _ _   _ _      
+    #  | | | | |_(_) |___  
+    #  | | | | __| | / __| 
+    #  | |_| | |_| | \__ \ 
+    #   \___/ \__|_|_|___/ 
+    async def enqueue_sensor_data(self, sensor: T.AsyncIterator, queue: asyncio.Queue) -> None:
+        async for datum in sensor:
+            try:
+                queue.put_nowait((datum.datetime, datum))
+            except asyncio.QueueFull:
+                print(f"Queue is full, dropping {datum}")
+
+    async def get_most_recent_item(self, queue):
+        item = await queue.get()
+        while True:
+            try:
+                next_item = queue.get_nowait()
+            except asyncio.QueueEmpty:
+                return item
+            else:
+                item = next_item
 
 
-        except KeyboardInterrupt:
-            pass
+    async def get_closest_item(self, queue, timestamp):
+        item_ts, item = await queue.get()
+        # assumes monotonically increasing timestamps
+        if item_ts > timestamp:
+            return item_ts, item
+        while True:
+            try:
+                next_item_ts, next_item = queue.get_nowait()
+            except asyncio.QueueEmpty:
+                return item_ts, item
+            else:
+                if next_item_ts > timestamp:
+                    return next_item_ts, next_item
+                item_ts, item = next_item_ts, next_item
 
 def main(args=None):
     '''
@@ -162,16 +200,18 @@ def main(args=None):
     # init for all ROS things
     rclpy.init(args=args)
 
-    # init glasses
-    glasses = SmartGlasses("10.5.50.232")
-    glasses.print_neon_companion_info()
-    glasses.stream_outward_cam_and_gaze()
+    # init glasses (give an IP address if necessary! 
+    #  check in neon companion android app)
+    glasses = SmartGlasses()
+    # Publish cam and gaze data
+    asyncio.run(glasses.stream_outward_cam_and_gaze())
 
+    # Spin ROS
     rclpy.spin(glasses)
 
+    # clean up
     glasses.destroy_node()
     rclpy.shutdown()
-
 
 if __name__ == "__main__":
     main()

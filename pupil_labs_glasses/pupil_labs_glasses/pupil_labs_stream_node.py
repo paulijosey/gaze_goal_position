@@ -6,22 +6,21 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz>      +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/04 09:00:11 by Paul Joseph       #+#    #+#              #
-#    Updated: 2023/10/04 15:03:05 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2023/10/05 14:59:13 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
-from pupil_labs.realtime_api import Device, Network, models, receive_video_frames, receive_gaze_data
+from pupil_labs.realtime_api import Device, Network, models, receive_video_frames, receive_gaze_data, receive_imu_data
 import asyncio
-import time
-import cv2 as cv
-import contextlib
 import typing as T
+import scipy
+import math 
 # ROS imports
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
-from sensor_msgs.msg import Image
-from geometry_msgs.msg import Point
+from sensor_msgs.msg import Image, Imu
+from geometry_msgs.msg import PointStamped
 from cv_bridge import CvBridge
 
 class SmartGlasses(Node):
@@ -47,7 +46,9 @@ class SmartGlasses(Node):
         #   publisher for pretty pictures
         self.cam_outward_pub = self.create_publisher(Image, '~/cam_outward', 10)
         #   publisher for the gaze data
-        self.gaze_pub = self.create_publisher(Point, '~/gaze', 10)
+        self.gaze_pub = self.create_publisher(PointStamped, '~/gaze', 10)
+        #   publisher for the imu data
+        self.imu_pub = self.create_publisher(Imu, '~/imu', 10)
 
     #    _   _      _                      _    _
     #   | \ | | ___| |___      _____  _ __| | _(_)_ __   __ _
@@ -99,6 +100,9 @@ class SmartGlasses(Node):
             self.cam_outward = status.direct_world_sensor()
             print(f"World sensor: connected={self.cam_outward.connected} url={self.cam_outward.url}")
     
+            self.imu = status.direct_imu_sensor()
+            print(f"IMU sensor: connected={self.imu.connected} url={self.imu.url}")
+
             self.gaze = status.direct_gaze_sensor()
             print(f"Gaze sensor: connected={self.gaze.connected} url={self.gaze.url}")
 
@@ -115,13 +119,20 @@ class SmartGlasses(Node):
         restart_on_disconnect = True
         queue_cam_outward = asyncio.Queue()
         queue_gaze = asyncio.Queue()
+        queue_imu = asyncio.Queue()
 
-        # get image and gaze data from pupil labs glasses 
+        # get image, imu and gaze data from pupil labs glasses 
         # and figure out which data entries match
         process_cam_outward = asyncio.create_task(
             self.enqueue_sensor_data(
                 receive_video_frames(self.cam_outward.url, run_loop=restart_on_disconnect),
                 queue_cam_outward,
+            )
+        )
+        process_imu = asyncio.create_task(
+            self.enqueue_sensor_data(
+                receive_imu_data(self.imu.url, run_loop=restart_on_disconnect),
+                queue_imu,
             )
         )
         process_gaze = asyncio.create_task(
@@ -135,25 +146,58 @@ class SmartGlasses(Node):
             while True:
                 video_datetime, frame = await self.get_most_recent_item(queue_cam_outward)
                 _, gaze = await self.get_closest_item(queue_gaze, video_datetime)
+                _, imu  = await self.get_closest_item(queue_imu,  video_datetime)
+                timestamp = self.get_clock().now().to_msg() # for now lets use current system time
                 # publish in ros messages
                 #   frame consists of:
                 #       frame.bgr_buffer 
                 #       frame.timestamp_unix_sec
                 cam_outward_msg = self.cv_bridge.cv2_to_imgmsg(frame.bgr_buffer(), 
                                                                encoding="passthrough")
+                cam_outward_msg.header.stamp = timestamp
                 self.cam_outward_pub.publish(cam_outward_msg)
                 #   Gaze consists of:
                 #       gaze.x
                 #       gaze.y
                 #       gaze.worn
                 #       gaze.timestamp_unix_sec
-                gaze_msg = Point()
-                gaze_msg.x = gaze.x
-                gaze_msg.y = gaze.y
+                gaze_msg = PointStamped()
+                gaze_msg.header.stamp = timestamp
+                gaze_msg.point.x = gaze.x
+                gaze_msg.point.y = gaze.y
                 self.gaze_pub.publish(gaze_msg)
+                #   imu consists of
+                #       imu.gyro_data:
+                #           x
+                #           y
+                #           z
+                #       imu.accel_data:
+                #           x
+                #           y
+                #           z
+                #       imu.quaternion:
+                #           x
+                #           y
+                #           z
+                #           w
+                #       imu.timestamp_unix_seconds
+                imu_msg = Imu()
+                imu_msg.header.stamp = timestamp
+                imu_msg.angular_velocity.x = math.radians(imu.gyro_data.x)
+                imu_msg.angular_velocity.y = math.radians(imu.gyro_data.y)
+                imu_msg.angular_velocity.z = math.radians(imu.gyro_data.z)
+                imu_msg.linear_acceleration.x = imu.accel_data.x*scipy.constants.g
+                imu_msg.linear_acceleration.y = imu.accel_data.y*scipy.constants.g
+                imu_msg.linear_acceleration.z = imu.accel_data.z*scipy.constants.g
+                imu_msg.orientation.x = imu.quaternion.x
+                imu_msg.orientation.y = imu.quaternion.y
+                imu_msg.orientation.z = imu.quaternion.z
+                imu_msg.orientation.w = imu.quaternion.w
+                self.imu_pub.publish(imu_msg)
         finally:
             process_cam_outward.cancel()
             process_gaze.cancel()
+            process_imu.cancel()
 
     #   _   _ _   _ _      
     #  | | | | |_(_) |___  

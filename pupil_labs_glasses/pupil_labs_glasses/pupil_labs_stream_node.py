@@ -3,10 +3,10 @@
 #                                                         :::      ::::::::    #
 #    pupil_labs_stream_node.py                          :+:      :+:    :+:    #
 #                                                     +:+ +:+         +:+      #
-#    By: Paul Joseph <paul.joseph@pbl.ee.ethz>      +#+  +:+       +#+         #
+#    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/04 09:00:11 by Paul Joseph       #+#    #+#              #
-#    Updated: 2023/10/05 14:59:13 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2023/10/11 12:12:05 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 

@@ -1,0 +1,25 @@
+launch:
+
+- node:
+    pkg: "realsense2_camera"
+    exec: "realsense2_camera_node"
+    name: "realsense2_camera"
+    namespace: "robodog_camera"
+
+- node:
+    pkg: "pupil_labs_glasses"
+    exec: "pupil_labs_stream_node"
+    name: "pupil_labs_glasses"
+    namespace: "smart_glasses"
+
+- node:
+    pkg: "gaze_transform"
+    exec: "gaze_transform_node"
+    name: "gaze_transform"
+    namespace: ""
+
+- node:
+    pkg: "gaze_transform"
+    exec: "gaze_viz_node"
+    name: "gaze_viz"
+    namespace: ""

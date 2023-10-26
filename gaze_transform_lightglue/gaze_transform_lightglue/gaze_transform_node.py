@@ -22,12 +22,12 @@ class GazeTransform(Node):
     def __init__(self) -> None:
         super().__init__('gaze_transform_node')
         # customizable params
-        self.viz_results = True    # save matching results in data folder
+        self.viz_results = False    # save matching results in data folder
         self.use_grayscale = False   # use grayscale images for faster matching (maybe)
         self.max_num_features = 256 # max number of features for detection (lower should be faster)
         self.use_ransac = False     # use ransac for filtering
-        self.glassesNode = '/PupilLabsStream'    # node name for the smartglasses
-        self.robodogNode = '/color'    # node name for the robodog cam
+        self.glassesNode = '/smart_glasses'    # node name for the smartglasses
+        self.robodogNode = '/robodog_camera/color'    # node name for the robodog cam
         self.max_queue_size = 1     # max images saved in queue
 
         # init data queues

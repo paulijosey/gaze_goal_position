@@ -1,12 +1,12 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   ctrl_node.cpp                                      :+:      :+:    :+:   */
+/*   gaze_transform_node.cpp                            :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/10/06 08:52:10 by Paul Joseph       #+#    #+#             */
-/*   Updated: 2023/10/16 11:40:44 by Paul Joseph      ###   ########.fr       */
+/*   Updated: 2023/10/17 09:02:43 by Paul Joseph      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -275,8 +275,8 @@ private:
 	rclcpp::TimerBase::SharedPtr robodogGazeTimer;
 	std::chrono::duration<float> robodogGazePubInterval = std::chrono::milliseconds(200ms);
 	// node that streams the external device data
-	std::string externalDevice = "PupilLabsStream/";
-	std::string internalDevice = "color/";
+	std::string externalDevice = "smart_glasses/";
+	std::string internalDevice = "robodog_camera/color/";
 	// buffers for incoming data
 	std::queue<geometry_msgs::msg::PointStamped> glassesGazeBuf;
 	std::queue<sensor_msgs::msg::Image::ConstSharedPtr> glassesCamBuf;

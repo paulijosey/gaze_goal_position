@@ -55,6 +55,12 @@ install(TARGETS gaze_transform_node
 install(TARGETS gaze_viz_node
   DESTINATION lib/${PROJECT_NAME})
 
+# install launch files 
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME}/
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights

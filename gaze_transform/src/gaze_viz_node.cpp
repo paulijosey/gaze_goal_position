@@ -220,8 +220,8 @@ private:
     std::chrono::duration<float> glassesCamGazePubInterval = std::chrono::milliseconds(200ms);
     std::chrono::duration<float> robodogCamGazePubInterval = std::chrono::milliseconds(200ms);
     // node that streams the external device data
-    std::string externalDevice = "PupilLabsStream/";
-    std::string internalDevice = "color/";
+    std::string externalDevice = "smart_glasses/";
+    std::string internalDevice = "robodog_camera/color/";
     // buffers for incoming data
     std::queue<geometry_msgs::msg::PointStamped> glassesGazeBuf;
     std::queue<geometry_msgs::msg::PointStamped> robodogGazeBuf;

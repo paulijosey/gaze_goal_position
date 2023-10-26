@@ -6,7 +6,7 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/04 09:00:11 by Paul Joseph       #+#    #+#              #
-#    Updated: 2023/10/11 12:12:05 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2023/10/17 08:58:47 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -44,11 +44,11 @@ class SmartGlasses(Node):
         #   use cv bridge to handle cv2 to ROS convertion
         self.cv_bridge = CvBridge()
         #   publisher for pretty pictures
-        self.cam_outward_pub = self.create_publisher(Image, '~/cam_outward', 10)
+        self.cam_outward_pub = self.create_publisher(Image, 'cam_outward', 10)
         #   publisher for the gaze data
-        self.gaze_pub = self.create_publisher(PointStamped, '~/gaze', 10)
+        self.gaze_pub = self.create_publisher(PointStamped, 'gaze', 10)
         #   publisher for the imu data
-        self.imu_pub = self.create_publisher(Imu, '~/imu', 10)
+        self.imu_pub = self.create_publisher(Imu, 'imu', 10)
 
     #    _   _      _                      _    _
     #   | \ | | ___| |___      _____  _ __| | _(_)_ __   __ _

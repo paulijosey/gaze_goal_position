@@ -1,0 +1,44 @@
+before_script:
+  # set correct tag name 
+  #   - if main branch -> latest
+  #   - else ... branch name with "." instead of "/" as character (docker doesn't allow "/")
+  - if [[ "$CI_COMMIT_BRANCH" = "master" || "$CI_COMMIT_BRANCH" = "main" ]]; then DOCKER_TAG="latest"; else DOCKER_TAG=$(echo "$CI_COMMIT_BRANCH" | sed -e 's/\//\./g' ); fi
+
+build pupil_labs_glasses:
+  image: docker
+  services:
+    - docker:dind
+  variables:
+    IMAGE_NAME: "pupil_labs_glasses"
+  # rules:
+  #   - if: $CI_PIPELINE_SOURCE == "schedule"
+  script: 
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER $CI_REGISTRY --password-stdin
+    - docker build -t $CI_REGISTRY_IMAGE/$IMAGE_NAME:$DOCKER_TAG -f ./Dockerfiles/Dockerfile.$IMAGE_NAME .
+    - docker push $CI_REGISTRY_IMAGE/$IMAGE_NAME:$DOCKER_TAG
+
+build gaze_transform:
+  image: docker
+  services:
+    - docker:dind
+  variables:
+    IMAGE_NAME: "gaze_transform"
+  # rules:
+  #   - if: $CI_PIPELINE_SOURCE == "schedule"
+  script: 
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER $CI_REGISTRY --password-stdin
+    - docker build -t $CI_REGISTRY_IMAGE/$IMAGE_NAME:$DOCKER_TAG -f ./Dockerfiles/Dockerfile.$IMAGE_NAME .
+    - docker push $CI_REGISTRY_IMAGE/$IMAGE_NAME:$DOCKER_TAG
+
+build gaze_transform_lightglue:
+  image: docker
+  services:
+    - docker:dind
+  variables:
+    IMAGE_NAME: "gaze_transform_lightglue"
+  # rules:
+  #   - if: $CI_PIPELINE_SOURCE == "schedule"
+  script: 
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER $CI_REGISTRY --password-stdin
+    - docker build -t $CI_REGISTRY_IMAGE/$IMAGE_NAME:$DOCKER_TAG -f ./Dockerfiles/Dockerfile.$IMAGE_NAME .
+    - docker push $CI_REGISTRY_IMAGE/$IMAGE_NAME:$DOCKER_TAG

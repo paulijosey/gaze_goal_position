@@ -6,7 +6,7 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/04 09:00:11 by Paul Joseph       #+#    #+#              #
-#    Updated: 2023/10/17 08:58:47 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2023/10/27 08:51:48 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -119,20 +119,13 @@ class SmartGlasses(Node):
         restart_on_disconnect = True
         queue_cam_outward = asyncio.Queue()
         queue_gaze = asyncio.Queue()
-        queue_imu = asyncio.Queue()
 
-        # get image, imu and gaze data from pupil labs glasses 
+        # get image and gaze data from pupil labs glasses 
         # and figure out which data entries match
         process_cam_outward = asyncio.create_task(
             self.enqueue_sensor_data(
                 receive_video_frames(self.cam_outward.url, run_loop=restart_on_disconnect),
                 queue_cam_outward,
-            )
-        )
-        process_imu = asyncio.create_task(
-            self.enqueue_sensor_data(
-                receive_imu_data(self.imu.url, run_loop=restart_on_disconnect),
-                queue_imu,
             )
         )
         process_gaze = asyncio.create_task(
@@ -146,7 +139,6 @@ class SmartGlasses(Node):
             while True:
                 video_datetime, frame = await self.get_most_recent_item(queue_cam_outward)
                 _, gaze = await self.get_closest_item(queue_gaze, video_datetime)
-                _, imu  = await self.get_closest_item(queue_imu,  video_datetime)
                 timestamp = self.get_clock().now().to_msg() # for now lets use current system time
                 # publish in ros messages
                 #   frame consists of:
@@ -166,6 +158,29 @@ class SmartGlasses(Node):
                 gaze_msg.point.x = gaze.x
                 gaze_msg.point.y = gaze.y
                 self.gaze_pub.publish(gaze_msg)
+        finally:
+            process_cam_outward.cancel()
+            process_gaze.cancel()
+
+
+    async def stream_imu(self) -> None:
+        '''
+        read the IMU stream and publish it as ROS messages
+        '''
+        # init queue
+        queue_imu = asyncio.Queue()
+        # get data
+        process_imu = asyncio.create_task(
+            self.enqueue_sensor_data(
+                receive_imu_data(self.imu.url, run_loop=restart_on_disconnect),
+                queue_imu,
+            )
+        )
+        try:
+            # match queues
+            while True:
+                imu_datetime, imu= await self.get_most_recent_item(queue_imu)
+                timestamp = self.get_clock().now().to_msg() # for now lets use current system time
                 #   imu consists of
                 #       imu.gyro_data:
                 #           x
@@ -195,8 +210,6 @@ class SmartGlasses(Node):
                 imu_msg.orientation.w = imu.quaternion.w
                 self.imu_pub.publish(imu_msg)
         finally:
-            process_cam_outward.cancel()
-            process_gaze.cancel()
             process_imu.cancel()
 
     #   _   _ _   _ _      
@@ -249,6 +262,8 @@ def main(args=None):
     glasses = SmartGlasses()
     # Publish cam and gaze data
     asyncio.run(glasses.stream_outward_cam_and_gaze())
+    # Publish IMU data
+    asyncio.run(glasses.stream_imu())
 
     # Spin ROS
     rclpy.spin(glasses)

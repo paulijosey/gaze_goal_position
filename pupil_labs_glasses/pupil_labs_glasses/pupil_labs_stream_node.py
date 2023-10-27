@@ -6,7 +6,7 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/04 09:00:11 by Paul Joseph       #+#    #+#              #
-#    Updated: 2023/10/27 08:51:48 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2023/10/27 11:47:56 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -35,6 +35,11 @@ class SmartGlasses(Node):
         self.port = 8080  # this might change ... but keep it hardcoded for now
         self.recording_id = ''
 
+
+        # await asyncio.gather(
+        #     asyncio.create_task(self.neon_companion_network_conf()),
+        #     asyncio.create_task(self.get_neon_companion_info()),
+        # )
         # init connection (this will init self.device)
         asyncio.run(self.neon_companion_network_conf())
         # Get device status and info (this will init self.cam_outward & self.gaze)
@@ -168,6 +173,7 @@ class SmartGlasses(Node):
         read the IMU stream and publish it as ROS messages
         '''
         # init queue
+        restart_on_disconnect = True
         queue_imu = asyncio.Queue()
         # get data
         process_imu = asyncio.create_task(
@@ -211,6 +217,12 @@ class SmartGlasses(Node):
                 self.imu_pub.publish(imu_msg)
         finally:
             process_imu.cancel()
+
+    async def stream_data(self) -> None:
+        await asyncio.gather(
+            asyncio.create_task(self.stream_imu()),
+            asyncio.create_task(self.stream_outward_cam_and_gaze()),
+        )
 
     #   _   _ _   _ _      
     #  | | | | |_(_) |___  
@@ -260,10 +272,8 @@ def main(args=None):
     # init glasses (give an IP address if necessary! 
     #  check in neon companion android app)
     glasses = SmartGlasses()
-    # Publish cam and gaze data
-    asyncio.run(glasses.stream_outward_cam_and_gaze())
-    # Publish IMU data
-    asyncio.run(glasses.stream_imu())
+    # Publish cam, gaze and IMU data
+    asyncio.run(glasses.stream_data())
 
     # Spin ROS
     rclpy.spin(glasses)

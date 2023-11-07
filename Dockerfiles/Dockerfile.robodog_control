@@ -2,6 +2,7 @@ FROM registry.git.ee.ethz.ch/pbl/research/robodog/ros_base_layers/ros_humble
 
 WORKDIR $ROS_WS
 COPY robodog_control $ROS_WS/src/
+COPY gaze_msgs $ROS_WS/src/
 RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \
     . /opt/ros/${ROS_DISTRO}/setup.sh && \
     colcon build

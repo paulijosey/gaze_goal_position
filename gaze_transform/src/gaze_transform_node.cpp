@@ -6,7 +6,7 @@
 /*   By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/10/06 08:52:10 by Paul Joseph       #+#    #+#             */
-/*   Updated: 2023/10/17 09:02:43 by Paul Joseph      ###   ########.fr       */
+/*   Updated: 2023/10/31 09:26:50 by Paul Joseph      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -30,7 +30,7 @@
 // ROS stuff imports
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
-#include "geometry_msgs/msg/point_stamped.hpp"
+#include "gaze_msgs/msg/gaze_stamped.hpp"
 #include "sensor_msgs/msg/image.hpp"
 #include "cv_bridge/cv_bridge.h"
 #include "image_transport/image_transport.hpp"
@@ -57,7 +57,7 @@ public:
 		// 		- topic name
 		//		- buffer (I think)
 		// 		- callback function
-		glassesGazeSub = this->create_subscription<geometry_msgs::msg::PointStamped>(
+		glassesGazeSub = this->create_subscription<gaze_msgs::msg::GazeStamped>(
 			externalDevice + "gaze",
 			10,
 			std::bind(&GazeTransform::glasses_gaze_sub_callback, this, std::placeholders::_1));
@@ -69,7 +69,7 @@ public:
 		// init the subscribers to listen to internal device (e.g.
 		// a camera)
 		robodogCamSub = this->create_subscription<sensor_msgs::msg::Image>(
-			internalDevice + "image_raw",
+			internalDevice + "color/image_raw",
 			10,
 			std::bind(&GazeTransform::robodog_cam_sub_callback, this, std::placeholders::_1)); //
 
@@ -77,7 +77,7 @@ public:
 		// the glasses transformed to the robodogs image)
 		// 		- topic name
 		//		- buffer (I think)
-		robodogGazePub = this->create_publisher<geometry_msgs::msg::PointStamped>(
+		robodogGazePub = this->create_publisher<gaze_msgs::msg::GazeStamped>(
 			internalDevice + "gaze",
 			10);
 
@@ -94,7 +94,7 @@ private:
 	//  | |   / _` | | | '_ \ / _` |/ __| |/ / __|
 	//  | |__| (_| | | | |_) | (_| | (__|   <\__ \
 	//   \____\__,_|_|_|_.__/ \__,_|\___|_|\_\___/
-	void glasses_gaze_sub_callback(const geometry_msgs::msg::PointStamped &gazeMsg)
+	void glasses_gaze_sub_callback(const gaze_msgs::msg::GazeStamped &gazeMsg)
 	{
 		// get gaze data and save in queue
 		push_to_queue(gazeMsg, glassesGazeBuf);
@@ -163,8 +163,8 @@ private:
 				glassesCamCvPtr = cv_bridge::toCvShare(glassesCamBuf.front());
 				robodogCamCvPtr = cv_bridge::toCvShare(robodogCamBuf.front(),
 													   sensor_msgs::image_encodings::BGR8);
-				glassesGazeCv.x = glassesGazeBuf.front().point.x;
-				glassesGazeCv.y = glassesGazeBuf.front().point.y;
+				glassesGazeCv.x = glassesGazeBuf.front().gaze.x;
+				glassesGazeCv.y = glassesGazeBuf.front().gaze.y;
 				glassesCamBuf.pop();
 				robodogCamBuf.pop();
 				glassesGazeBuf.pop();
@@ -191,6 +191,13 @@ private:
 			// convert to grayscale because I like a gray world
 			cv::cvtColor(glassesCamCvPtr->image, glassesCamCvGray, CV_BGR2GRAY);
 			cv::cvtColor(robodogCamCvPtr->image, robodogCamCvGray, CV_BGR2GRAY);
+
+			// set image size variable if not already done so
+			if (robodogImageSizex == 0 && robodogImageSizey == 0)
+			{
+				robodogImageSizex = glassesCamCvGray.rows;
+				robodogImageSizey = glassesCamCvGray.cols;
+			}
 			// use fast score if settings.cpp says so
 			cv::Ptr<cv::xfeatures2d::SURF> detector = cv::xfeatures2d::SURF::create(400, 4, 3, false);
 			cv::Ptr<cv::DescriptorMatcher>
@@ -251,13 +258,18 @@ private:
 	}
 
 	void publish_gaze(cv::Point2f &gaze,
-					  rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr &pub)
+					  rclcpp::Publisher<gaze_msgs::msg::GazeStamped>::SharedPtr &pub)
 	{
-		geometry_msgs::msg::PointStamped gazeMsg;
-		gazeMsg.header.stamp = this->get_clock()->now();
-		gazeMsg.point.x = gaze.x;
-		gazeMsg.point.y = gaze.y;
-		pub->publish(gazeMsg);
+		if (robodogImageSizex != 0 || robodogImageSizey != 0)
+		{
+			gaze_msgs::msg::GazeStamped gazeMsg;
+			gazeMsg.header.stamp = this->get_clock()->now();
+			gazeMsg.gaze.x = gaze.x;
+			gazeMsg.gaze.y = gaze.y;
+			gazeMsg.image_size.width = robodogImageSizex;
+			gazeMsg.image_size.height = robodogImageSizex;
+			pub->publish(gazeMsg);
+		}
 	}
 
 	//  __     __         _       _     _
@@ -266,19 +278,19 @@ private:
 	//    \ V / (_| | |  | | (_| | |_) | |  __/\__ \
 	//     \_/ \__,_|_|  |_|\__,_|_.__/|_|\___||___/
 	// subscriber(s)
-	rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr glassesGazeSub;
+	rclcpp::Subscription<gaze_msgs::msg::GazeStamped>::SharedPtr glassesGazeSub;
 	rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr glassesCamSub;
 	rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr robodogCamSub;
 	// publisher(s)
-	rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr robodogGazePub;
+	rclcpp::Publisher<gaze_msgs::msg::GazeStamped>::SharedPtr robodogGazePub;
 	// timer for the publishing cycle
 	rclcpp::TimerBase::SharedPtr robodogGazeTimer;
-	std::chrono::duration<float> robodogGazePubInterval = std::chrono::milliseconds(200ms);
+	std::chrono::duration<float> robodogGazePubInterval = std::chrono::milliseconds(50ms);
 	// node that streams the external device data
 	std::string externalDevice = "smart_glasses/";
-	std::string internalDevice = "robodog_camera/color/";
+	std::string internalDevice = "camera/";
 	// buffers for incoming data
-	std::queue<geometry_msgs::msg::PointStamped> glassesGazeBuf;
+	std::queue<gaze_msgs::msg::GazeStamped> glassesGazeBuf;
 	std::queue<sensor_msgs::msg::Image::ConstSharedPtr> glassesCamBuf;
 	std::queue<sensor_msgs::msg::Image::ConstSharedPtr> robodogCamBuf;
 	const uint maxQueueSize = 1;
@@ -287,6 +299,8 @@ private:
 	cv_bridge::CvImageConstPtr robodogCamCvPtr;
 	cv::Point2f glassesGazeCv;
 	cv::Point2f robodogGazeCv;
+	uint robodogImageSizex;
+	uint robodogImageSizey;
 	uint maxNumFeatures = 400;
 };
 

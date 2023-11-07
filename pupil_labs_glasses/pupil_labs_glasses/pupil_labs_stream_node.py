@@ -6,7 +6,7 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/04 09:00:11 by Paul Joseph       #+#    #+#              #
-#    Updated: 2023/10/27 11:47:56 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2023/10/30 09:05:21 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -18,9 +18,8 @@ import math
 # ROS imports
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
 from sensor_msgs.msg import Image, Imu
-from geometry_msgs.msg import PointStamped
+from gaze_msgs.msg import GazeStamped
 from cv_bridge import CvBridge
 
 class SmartGlasses(Node):
@@ -35,11 +34,6 @@ class SmartGlasses(Node):
         self.port = 8080  # this might change ... but keep it hardcoded for now
         self.recording_id = ''
 
-
-        # await asyncio.gather(
-        #     asyncio.create_task(self.neon_companion_network_conf()),
-        #     asyncio.create_task(self.get_neon_companion_info()),
-        # )
         # init connection (this will init self.device)
         asyncio.run(self.neon_companion_network_conf())
         # Get device status and info (this will init self.cam_outward & self.gaze)
@@ -51,7 +45,7 @@ class SmartGlasses(Node):
         #   publisher for pretty pictures
         self.cam_outward_pub = self.create_publisher(Image, 'cam_outward', 10)
         #   publisher for the gaze data
-        self.gaze_pub = self.create_publisher(PointStamped, 'gaze', 10)
+        self.gaze_pub = self.create_publisher(GazeStamped, 'gaze', 10)
         #   publisher for the imu data
         self.imu_pub = self.create_publisher(Imu, 'imu', 10)
 
@@ -158,10 +152,12 @@ class SmartGlasses(Node):
                 #       gaze.y
                 #       gaze.worn
                 #       gaze.timestamp_unix_sec
-                gaze_msg = PointStamped()
+                gaze_msg = GazeStamped()
                 gaze_msg.header.stamp = timestamp
-                gaze_msg.point.x = gaze.x
-                gaze_msg.point.y = gaze.y
+                gaze_msg.gaze.x = gaze.x
+                gaze_msg.gaze.y = gaze.y
+                gaze_msg.image_size.height = cam_outward_msg.height
+                gaze_msg.image_size.width = cam_outward_msg.width
                 self.gaze_pub.publish(gaze_msg)
         finally:
             process_cam_outward.cancel()

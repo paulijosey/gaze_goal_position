@@ -9,7 +9,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(geometry_msgs REQUIRED)
+find_package(gaze_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
@@ -33,7 +33,7 @@ target_compile_features(gaze_transform_node PUBLIC c_std_99 cxx_std_17)  # Requi
 ament_target_dependencies(gaze_transform_node 
                           rclcpp 
                           std_msgs
-                          geometry_msgs
+                          gaze_msgs
                           sensor_msgs
                           cv_bridge
                           image_transport
@@ -43,7 +43,7 @@ ament_target_dependencies(gaze_transform_node
 ament_target_dependencies(gaze_viz_node 
                           rclcpp 
                           std_msgs
-                          geometry_msgs
+                          gaze_msgs
                           sensor_msgs
                           cv_bridge
                           OpenCV

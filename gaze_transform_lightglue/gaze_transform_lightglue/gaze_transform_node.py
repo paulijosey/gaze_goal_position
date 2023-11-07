@@ -1,5 +1,17 @@
+# **************************************************************************** #
+#                                                                              #
+#                                                         :::      ::::::::    #
+#    gaze_transform_node.py                             :+:      :+:    :+:    #
+#                                                     +:+ +:+         +:+      #
+#    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
+#                                                 +#+#+#+#+#+   +#+            #
+#    Created: 2023/10/30 09:12:35 by Paul Joseph       #+#    #+#              #
+#    Updated: 2023/10/31 09:27:19 by Paul Joseph      ###   ########.fr        #
+#                                                                              #
+# **************************************************************************** #
+
 from lightglue import LightGlue, SuperPoint, DISK, match_pair, viz2d
-from lightglue.utils import load_image, rbd, numpy_image_to_torch
+from lightglue.utils import numpy_image_to_torch
 import torch
 import cv2
 import numpy as np
@@ -8,9 +20,8 @@ from queue import Queue
 # ROS imports
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
-from sensor_msgs.msg import Image, Imu
-from geometry_msgs.msg import PointStamped
+from sensor_msgs.msg import Image
+from gaze_msgs.msg import GazeStamped
 from cv_bridge import CvBridge
  
 class GazeTransform(Node):
@@ -27,13 +38,16 @@ class GazeTransform(Node):
         self.max_num_features = 256 # max number of features for detection (lower should be faster)
         self.use_ransac = False     # use ransac for filtering
         self.glassesNode = '/smart_glasses'    # node name for the smartglasses
-        self.robodogNode = '/robodog_camera/color'    # node name for the robodog cam
+        self.robodogNode = '/camera'    # node name for the robodog cam
         self.max_queue_size = 1     # max images saved in queue
 
         # init data queues
         self.glasses_gaze_queue = Queue(maxsize=self.max_queue_size)
         self.glasses_cam_queue = Queue(maxsize=self.max_queue_size)
         self.robodog_cam_queue = Queue(maxsize=self.max_queue_size)
+
+        # init image size as zero. Will be used for full gaze data info stream
+        self.robodog_image_size = [0, 0]
 
         # init lightglue 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # 'mps', 'cpu'
@@ -72,6 +86,10 @@ class GazeTransform(Node):
             robodog_img = self.get_img_from_msg(self.robodog_cam_queue.get())
             glasses_gaze = self.get_gaze_from_msg(self.glasses_gaze_queue.get())
             # convert to tensor (because lightglue wants that)
+            # set robodog image size param if not yet done 
+            if (self.robodog_image_size == [0, 0]):
+                self.robodog_image_size[0] = robodog_img.shape[0]
+                self.robodog_image_size[1] = robodog_img.shape[1]
             robodog_img_tensor = numpy_image_to_torch(robodog_img)
             glasses_img_tensor = numpy_image_to_torch(glasses_img)
             # now actually match
@@ -156,12 +174,12 @@ class GazeTransform(Node):
         #   use cv bridge to handle cv2 to ROS convertion
         self.cv_bridge = CvBridge()
         #   publisher for pretty pictures + gaze estimate
-        self.robodog_gaze_pub = self.create_publisher(PointStamped, self.robodogNode + '/gaze', 10)
+        self.robodog_gaze_pub = self.create_publisher(GazeStamped, self.robodogNode + '/gaze', 10)
         self.robodog_gaze_pub_timer = self.create_timer(0.2, self.robodog_gaze_pub_callback)
 
         #   subscriber for the gaze data
         self.glasses_gaze_sub = self.create_subscription(
-            PointStamped,
+            GazeStamped,
             self.glassesNode + '/gaze',
             self.glasses_gaze_sub_callback,
             10)
@@ -176,7 +194,7 @@ class GazeTransform(Node):
         #   subscriber for the cam data
         self.robodog_cam_sub = self.create_subscription(
             Image,
-            self.robodogNode + '/image_raw',
+            self.robodogNode + '/color/image_raw',
             self.robodog_cam_sub_callback,
             10)
         self.robodog_cam_sub # prevent unused variable warning
@@ -197,23 +215,27 @@ class GazeTransform(Node):
         # add new item 
         queue.put(msg)
 
-    def get_img_from_msg(self, msg: Image) -> torch.Tensor:
+    def get_img_from_msg(self, msg: Image) -> np.array:
         if(self.use_grayscale):
             return cv2.cvtColor(self.cv_bridge.imgmsg_to_cv2(msg), cv2.COLOR_BGR2GRAY)
         else:
             return self.cv_bridge.imgmsg_to_cv2(msg)
 
-    def get_gaze_from_msg(self, msg: PointStamped) -> np.array:
-        gaze = [msg.point.x, msg.point.y]
+    def get_gaze_from_msg(self, msg: GazeStamped) -> np.array:
+        gaze = [msg.gaze.x, msg.gaze.y]
         return gaze
 
     def publish_gaze_msg(self, gaze, publisher) -> None:
-        timestamp = self.get_clock().now().to_msg() # for now lets use current system time
-        gaze_msg = PointStamped()
-        gaze_msg.header.stamp = timestamp
-        gaze_msg.point.x = gaze[0]*1.0
-        gaze_msg.point.y = gaze[1]*1.0
-        publisher.publish(gaze_msg)
+        # check if we already set the image size variable 
+        if (self.robodog_image_size != [0, 0]):
+            timestamp = self.get_clock().now().to_msg() # for now lets use current system time
+            gaze_msg = GazeStamped()
+            gaze_msg.header.stamp = timestamp
+            gaze_msg.gaze.x = gaze[0]*1.0
+            gaze_msg.gaze.y = gaze[1]*1.0
+            gaze_msg.image_size.height = self.robodog_image_size[0]
+            gaze_msg.image_size.width = self.robodog_image_size[1]
+            publisher.publish(gaze_msg)
 
 def main(args=None):
     '''

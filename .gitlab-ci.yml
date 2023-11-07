@@ -42,3 +42,16 @@ build gaze_transform_lightglue:
     - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER $CI_REGISTRY --password-stdin
     - docker build -t $CI_REGISTRY_IMAGE/$IMAGE_NAME:$DOCKER_TAG -f ./Dockerfiles/Dockerfile.$IMAGE_NAME .
     - docker push $CI_REGISTRY_IMAGE/$IMAGE_NAME:$DOCKER_TAG
+
+build robodog_control:
+  image: docker
+  services:
+    - docker:dind
+  variables:
+    IMAGE_NAME: "robodog_control"
+  # rules:
+  #   - if: $CI_PIPELINE_SOURCE == "schedule"
+  script: 
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER $CI_REGISTRY --password-stdin
+    - docker build -t $CI_REGISTRY_IMAGE/$IMAGE_NAME:$DOCKER_TAG -f ./Dockerfiles/Dockerfile.$IMAGE_NAME .
+    - docker push $CI_REGISTRY_IMAGE/$IMAGE_NAME:$DOCKER_TAG

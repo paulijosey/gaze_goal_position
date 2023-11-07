@@ -1,0 +1,8 @@
+launch:
+
+# start our node
+- node:
+    pkg: "pupil_labs_glasses"
+    exec: "pupil_labs_stream_node"
+    name: "pupil_labs_glasses"
+    namespace: "smart_glasses"

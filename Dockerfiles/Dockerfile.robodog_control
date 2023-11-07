@@ -1,0 +1,9 @@
+FROM registry.git.ee.ethz.ch/pbl/research/robodog/ros_base_layers/ros_humble
+
+WORKDIR $ROS_WS
+COPY robodog_control /home/ws/src/
+RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \
+    . /opt/ros/${ROS_DISTRO}/setup.sh && \
+    colcon build
+
+USER $USER_NAME

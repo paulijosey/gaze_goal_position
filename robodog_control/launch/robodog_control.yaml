@@ -1,0 +1,8 @@
+launch:
+
+# start our node
+- node:
+    pkg: "robodog_control"
+    exec: "robodog_control_node"
+    name: "robodog_control"
+    namespace: ""

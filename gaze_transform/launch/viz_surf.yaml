@@ -1,11 +1,28 @@
 launch:
 
-- node:
-    pkg: "realsense2_camera"
-    exec: "realsense2_camera_node"
-    name: "realsense2_camera"
-    namespace: "robodog_camera"
+# realsense2 launch params
+- arg:
+    name: "enable_rgbd"
+    default: "true"
+- arg:
+    name: "enable_sync"
+    default: "true"
+- arg:
+    name: "align_depth.enable"
+    default: "true"
+- arg:
+    name: "enable_color"
+    default: "true"
+- arg:
+    name: "enable_depth"
+    default: "true"
 
+# include realsense launch file
+- group:
+    - include:
+        file: "$(find-pkg-share realsense2_camera)/launch/rs_launch.py"
+
+# start our nodes
 - node:
     pkg: "pupil_labs_glasses"
     exec: "pupil_labs_stream_node"

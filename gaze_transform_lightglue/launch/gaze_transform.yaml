@@ -1,0 +1,7 @@
+launch:
+
+- node:
+    pkg: "gaze_transform_lightglue"
+    exec: "gaze_transform_node"
+    name: "gaze_transform"
+    namespace: ""

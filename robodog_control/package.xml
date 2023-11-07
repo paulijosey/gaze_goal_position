@@ -1,23 +1,16 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>pupil_labs_glasses</name>
+  <name>robodog_control</name>
   <version>0.0.0</version>
-  <description>
-    This pkg lets you connect to a PupilLabs Glasses 
-    device and publishes its data to ROS2 topics
-  </description>
-  <maintainer email="josephp@ethz.ch">Paul Joseph</maintainer>
-  <license>MIT License</license>
+  <description>TODO: Package description</description>
+  <maintainer email="vscode@todo.todo">vscode</maintainer>
+  <license>TODO: License declaration</license>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
-
-  <exec_depend>std_msgs</exec_depend>
-  <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>gaze_msgs</exec_depend>
 
   <export>
     <build_type>ament_python</build_type>

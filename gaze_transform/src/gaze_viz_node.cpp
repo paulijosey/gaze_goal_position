@@ -17,7 +17,7 @@
 // ROS stuff imports
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
-#include "geometry_msgs/msg/point_stamped.hpp"
+#include "gaze_msgs/msg/gaze_stamped.hpp"
 #include "sensor_msgs/msg/image.hpp"
 #include "cv_bridge/cv_bridge.h"
 // #include "sensor_msgs/msg/image_const_ptr.hpp"
@@ -38,7 +38,7 @@ public:
         // 		- topic name
         //		- buffer (I think)
         // 		- callback function
-        glassesGazeSub = this->create_subscription<geometry_msgs::msg::PointStamped>(
+        glassesGazeSub = this->create_subscription<gaze_msgs::msg::GazeStamped>(
             externalDevice + "gaze",
             10,
             std::bind(&GazeViz::glasses_gaze_sub_callback, this, std::placeholders::_1));
@@ -50,11 +50,11 @@ public:
         // init the subscribers to listen to internal device (e.g.
         // a camera)
         robodogCamSub = this->create_subscription<sensor_msgs::msg::Image>(
-            internalDevice + "image_raw",
+            internalDevice + "color/image_raw",
             10,
             std::bind(&GazeViz::robodog_cam_sub_callback, this, std::placeholders::_1)); //
 
-        robodogGazeSub = this->create_subscription<geometry_msgs::msg::PointStamped>(
+        robodogGazeSub = this->create_subscription<gaze_msgs::msg::GazeStamped>(
             internalDevice + "gaze",
             10,
             std::bind(&GazeViz::robodog_gaze_sub_callback, this, std::placeholders::_1));
@@ -87,7 +87,7 @@ private:
     //  | |   / _` | | | '_ \ / _` |/ __| |/ / __|
     //  | |__| (_| | | | |_) | (_| | (__|   <\__ \
 	//   \____\__,_|_|_|_.__/ \__,_|\___|_|\_\___/
-    void glasses_gaze_sub_callback(const geometry_msgs::msg::PointStamped &gazeMsg)
+    void glasses_gaze_sub_callback(const gaze_msgs::msg::GazeStamped &gazeMsg)
     {
         // get gaze data and save in queue
         push_to_queue(gazeMsg, glassesGazeBuf);
@@ -101,7 +101,7 @@ private:
         RCLCPP_DEBUG_STREAM(this->get_logger(), "Glasses Cam Queue Size: " << glassesCamBuf.size());
     }
 
-    void robodog_gaze_sub_callback(const geometry_msgs::msg::PointStamped &gazeMsg)
+    void robodog_gaze_sub_callback(const gaze_msgs::msg::GazeStamped &gazeMsg)
     {
         // get gaze data and save in queue
         push_to_queue(gazeMsg, robodogGazeBuf);
@@ -181,7 +181,7 @@ private:
         queue.push(msg);
     }
 
-    void draw_gaze_in_img(geometry_msgs::msg::PointStamped &gaze,
+    void draw_gaze_in_img(gaze_msgs::msg::GazeStamped &gaze,
                           cv_bridge::CvImageConstPtr img,
                           rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr &pub,
                           const std::string encoding)
@@ -189,8 +189,8 @@ private:
         // init as cv bridge object for later publishing
         cv_bridge::CvImage img_bridge;
         cv::Point2f gazeCv;
-        gazeCv.x = gaze.point.x;
-        gazeCv.y = gaze.point.y;
+        gazeCv.x = gaze.gaze.x;
+        gazeCv.y = gaze.gaze.y;
         // draw circle
         cv::circle(img->image, gazeCv, 30, cv::Scalar(0, 0, 255), 10, cv::LINE_8, 0);
         // Publish
@@ -207,8 +207,8 @@ private:
     //    \ V / (_| | |  | | (_| | |_) | |  __/\__ \
 	//     \_/ \__,_|_|  |_|\__,_|_.__/|_|\___||___/
     // subscriber(s)
-    rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr glassesGazeSub;
-    rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr robodogGazeSub;
+    rclcpp::Subscription<gaze_msgs::msg::GazeStamped>::SharedPtr glassesGazeSub;
+    rclcpp::Subscription<gaze_msgs::msg::GazeStamped>::SharedPtr robodogGazeSub;
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr glassesCamSub;
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr robodogCamSub;
     // publisher(s)
@@ -221,10 +221,10 @@ private:
     std::chrono::duration<float> robodogCamGazePubInterval = std::chrono::milliseconds(200ms);
     // node that streams the external device data
     std::string externalDevice = "smart_glasses/";
-    std::string internalDevice = "robodog_camera/color/";
+    std::string internalDevice = "camera/";
     // buffers for incoming data
-    std::queue<geometry_msgs::msg::PointStamped> glassesGazeBuf;
-    std::queue<geometry_msgs::msg::PointStamped> robodogGazeBuf;
+    std::queue<gaze_msgs::msg::GazeStamped> glassesGazeBuf;
+    std::queue<gaze_msgs::msg::GazeStamped> robodogGazeBuf;
     std::queue<sensor_msgs::msg::Image::ConstSharedPtr> glassesCamBuf;
     std::queue<sensor_msgs::msg::Image::ConstSharedPtr> robodogCamBuf;
     const uint maxQueueSize = 1;

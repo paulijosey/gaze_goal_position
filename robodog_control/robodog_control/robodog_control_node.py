@@ -6,7 +6,7 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/30 08:05:28 by Paul Joseph       #+#    #+#              #
-#    Updated: 2023/11/07 09:11:05 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2023/11/07 14:12:30 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -19,13 +19,9 @@ import tf
 import rclpy
 from rclpy.node import Node
 from cv_bridge import CvBridge
-from geometry_msgs.msg import Twist, Pose, PoseStamped
+from geometry_msgs.msg import Twist, PoseStamped
 from sensor_msgs.msg import Image, CameraInfo
 from gaze_msgs.msg import GazeStamped
-from action_msgs.msg import GoalStatus
-from lifecycle_msgs.srv import GetState
-from nav2_msgs.action import NavigateThroughPoses, NavigateToPose
-from rclpy.action import ActionClient
 
 import rclpy
 
@@ -42,9 +38,6 @@ class RobodogCtrl(Node):
         self.robodogNode = '/camera'    # node name for the robodog cam
         self.max_queue_size = 1     # max images saved in queue
         self.depth_cam_info = None
-        self.client = ActionClient(self,
-                                   NavigateToPose,
-                                   '/move_base')
 
         # init data queues
         self.init_queues()
@@ -268,34 +261,6 @@ class RobodogCtrl(Node):
             return pose_map
         except:
             self.get_logger().warning("Transformation failed")
-
-    # def go_to_pose(self, pose):
-    #     # Sends a `NavToPose` action request and waits for completion
-    #     self.get_logger().debug("Waiting for 'NavigateToPose' action server")
-    #     # while not self.client.wait_for_server(timeout_sec=1.0):
-    #     #     self.get_logger().info("'NavigateToPose' action server not available, waiting...")
-
-    #     goal_msg = NavigateToPose.Goal()
-    #     goal_msg.pose = pose
-
-    #     self.get_logger().info('Navigating to goal: ' + str(pose.pose.position.x) + ' ' +
-    #               str(pose.pose.position.y) + '...')
-    #     send_goal_future = self.client.send_goal_async(goal_msg,
-    #                                                    self._feedbackCallback)
-    #     rclpy.spin_until_future_complete(self, send_goal_future)
-    #     self.goal_handle = send_goal_future.result()
-
-    #     if not self.goal_handle.accepted:
-    #         self.get_logger().error('Goal to ' + str(pose.pose.position.x) + ' ' +
-    #                    str(pose.pose.position.y) + ' was rejected!')
-    #         return False
-
-    #     self.result_future = self.goal_handle.get_result_async()
-    #     return True
-
-    # def _feedbackCallback(self, msg):
-    #     self.feedback = msg.feedback
-    #     return
 
     def send_goal_pose(self, pose: PoseStamped) -> None:
         '''

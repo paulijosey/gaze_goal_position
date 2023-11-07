@@ -24,7 +24,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'robogog_control_node = robodog_control.robodog_control_node:main'
+            'robodog_control_node = robodog_control.robodog_control_node:main'
         ],
     },
 )

@@ -1,6 +1,7 @@
 FROM registry.git.ee.ethz.ch/pbl/research/robodog/ros_base_layers/ros_humble
 
 WORKDIR $ROS_WS
+
 COPY pupil_labs_glasses $ROS_WS/src/pupil_labs_glasses/
 COPY gaze_msgs $ROS_WS/src/gaze_msgs/
 RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \

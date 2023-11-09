@@ -6,7 +6,7 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/30 08:05:28 by Paul Joseph       #+#    #+#              #
-#    Updated: 2023/11/07 14:12:30 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2023/11/09 15:59:07 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -59,8 +59,8 @@ class RobodogCtrl(Node):
         self.set_depth_cam_info(msg)
 
     def robodog_ctrl_pub_callback(self) -> None:
-        # self.calc_cmd_from_gaze()
-        self.test()
+        self.calc_cmd_from_gaze()
+        # self.test()
 
     #    _____                 _   _
     #   |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
@@ -88,13 +88,10 @@ class RobodogCtrl(Node):
                 self.depth_cam_info != None):
             # get data from queue
             gaze_msg = self.robodog_gaze_queue.get()
-            depth_msg = self.robodog_depth_queue.get()
             # calc gaze offset from image center (relative to image size)
             gaze_offset = self.calc_gaze_offset(gaze_msg)
             # now calc control command.
             twist = self.calc_twist_from_offset(gaze_offset)
-            # calculate the 3D coordinates of the gaze
-            pose_map = self.calc_gaze_to_world(depth_msg, gaze_msg)
             # finally publish this commad to robot
             self.publish_cmd_vel_msg(twist, self.robodog_ctrl_pub)
 

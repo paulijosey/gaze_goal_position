@@ -1,3 +1,0 @@
-pupil-labs-realtime-api
-numpy>=1.25.2
-scipy

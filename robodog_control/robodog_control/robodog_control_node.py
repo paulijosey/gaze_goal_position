@@ -6,7 +6,7 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/30 08:05:28 by Paul Joseph       #+#    #+#              #
-#    Updated: 2023/11/09 15:59:07 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2023/11/13 09:26:18 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -14,6 +14,7 @@
 from queue import Queue
 import numpy as np
 import tf
+import random
 
 # ROS imports
 import rclpy
@@ -60,7 +61,6 @@ class RobodogCtrl(Node):
 
     def robodog_ctrl_pub_callback(self) -> None:
         self.calc_cmd_from_gaze()
-        # self.test()
 
     #    _____                 _   _
     #   |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
@@ -71,12 +71,19 @@ class RobodogCtrl(Node):
         pose_frame = PoseStamped()
         pose_frame.header.frame_id = 'map'
         pose_frame.header.stamp = self.get_clock().now().to_msg()
-        pose_frame.pose.position.x = -0.5
-        pose_frame.pose.position.y = 0.0
+        pose_frame.pose.position.x = random.uniform(-0.5, 0.5)
+        pose_frame.pose.position.y = random.uniform(-2.5, 2.5)
         pose_frame.pose.position.z = 0.0
         # pose_map = self.transform_pose(pose_frame, "map")
         # print(pose_map)
         self.send_goal_pose(pose_frame)
+
+    def test2(self):
+        # print(pose_map)
+        twist = Twist()
+        twist.angular.z = 0.3
+        # finally publish this commad to robot
+        self.publish_cmd_vel_msg(twist, self.robodog_ctrl_pub)
 
     def calc_cmd_from_gaze(self) -> None:
         ''' 

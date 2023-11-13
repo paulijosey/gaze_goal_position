@@ -4,5 +4,5 @@ launch:
 - node:
     pkg: "robodog_control"
     exec: "robodog_control_node"
-    name: "robodog_control"
+    name: "RobodogCtrl"
     namespace: ""

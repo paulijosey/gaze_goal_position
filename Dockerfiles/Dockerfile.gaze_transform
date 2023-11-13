@@ -4,7 +4,6 @@ WORKDIR $ROS_WS
 COPY gaze_transform $ROS_WS/src/gaze_transform/
 COPY gaze_msgs $ROS_WS/src/gaze_msgs/
 RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \
-    . /opt/ros/${ROS_DISTRO}/setup.sh && \
     colcon build
 
 USER $USER_NAME

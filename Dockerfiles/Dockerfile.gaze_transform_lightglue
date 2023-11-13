@@ -1,10 +1,15 @@
 FROM registry.git.ee.ethz.ch/pbl/research/robodog/ros_base_layers/ros_humble
 
+# install lightglue
+WORKDIR /lightglue
+RUN git clone https://github.com/cvg/LightGlue.git && \
+    cd LightGlue && \
+    pip install -e .
+
 WORKDIR $ROS_WS
 COPY gaze_transform_lightglue $ROS_WS/src/gaze_transform_lightglue/
 COPY gaze_msgs $ROS_WS/src/gaze_msgs/
 RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \
-    . /opt/ros/${ROS_DISTRO}/setup.sh && \
     colcon build
 
 USER $USER_NAME

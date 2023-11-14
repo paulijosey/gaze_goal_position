@@ -6,7 +6,7 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/04 09:00:11 by Paul Joseph       #+#    #+#              #
-#    Updated: 2023/11/09 16:23:48 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2023/11/14 09:38:48 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -267,7 +267,7 @@ def main(args=None):
 
     # init glasses (give an IP address if necessary! 
     #  check in neon companion android app)
-    glasses = SmartGlasses(ip='192.168.125.3')
+    glasses = SmartGlasses(ip='192.168.12.118')
     # Publish cam, gaze and IMU data
     asyncio.run(glasses.stream_data())
 

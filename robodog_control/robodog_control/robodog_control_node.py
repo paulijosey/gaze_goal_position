@@ -6,14 +6,13 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/30 08:05:28 by Paul Joseph       #+#    #+#              #
-#    Updated: 2023/11/13 09:26:18 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2023/11/15 14:30:32 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
 
 from queue import Queue
 import numpy as np
-import tf
 import random
 
 # ROS imports
@@ -69,21 +68,13 @@ class RobodogCtrl(Node):
     #   |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
     def test(self):
         pose_frame = PoseStamped()
-        pose_frame.header.frame_id = 'map'
+        pose_frame.header.frame_id = "odom"
         pose_frame.header.stamp = self.get_clock().now().to_msg()
         pose_frame.pose.position.x = random.uniform(-0.5, 0.5)
         pose_frame.pose.position.y = random.uniform(-2.5, 2.5)
         pose_frame.pose.position.z = 0.0
-        # pose_map = self.transform_pose(pose_frame, "map")
         # print(pose_map)
         self.send_goal_pose(pose_frame)
-
-    def test2(self):
-        # print(pose_map)
-        twist = Twist()
-        twist.angular.z = 0.3
-        # finally publish this commad to robot
-        self.publish_cmd_vel_msg(twist, self.robodog_ctrl_pub)
 
     def calc_cmd_from_gaze(self) -> None:
         ''' 
@@ -91,16 +82,13 @@ class RobodogCtrl(Node):
         follow the gaze in the robots image frame 
         '''
         if (not self.robodog_gaze_queue.empty() and
-            not self.robodog_gaze_queue.empty() and
+            not self.robodog_depth_queue.empty() and
                 self.depth_cam_info != None):
             # get data from queue
             gaze_msg = self.robodog_gaze_queue.get()
-            # calc gaze offset from image center (relative to image size)
-            gaze_offset = self.calc_gaze_offset(gaze_msg)
-            # now calc control command.
-            twist = self.calc_twist_from_offset(gaze_offset)
-            # finally publish this commad to robot
-            self.publish_cmd_vel_msg(twist, self.robodog_ctrl_pub)
+            depth_msg = self.robodog_depth_queue.get()
+            frame_pose = self.calc_gaze_to_frame(depth_msg, gaze_msg)
+            self.send_goal_pose(frame_pose)
 
     def calc_gaze_offset(self, gaze: GazeStamped) -> np.ndarray:
         # calc center point of image
@@ -113,6 +101,9 @@ class RobodogCtrl(Node):
                 (gaze.gaze.y - center['y'])/gaze.image_size.height]
 
     def calc_twist_from_offset(self, offset: np.array) -> Twist:
+        '''
+        In case we just want to turn use this to calculate the Twist
+        '''
         # (yaw control needs to be positiv when turning counter clockwise).
         # also make the control speed dependent on the proximity of gaze
         # to center
@@ -121,7 +112,11 @@ class RobodogCtrl(Node):
         twist.angular.z = -offset[0]
         return twist
 
-    def calc_gaze_to_world(self, depth_msg: Image, gaze_msg: GazeStamped) -> tuple[float, float, float]:
+    def calc_gaze_to_frame(self, depth_msg: Image, gaze_msg: GazeStamped) -> PoseStamped:
+        '''
+        Calculate the pose in the camera frame reference given the pixel coordinates (as
+        ROS msg) and the depth data (also ROS msg)
+        '''
         # convert depth image to usable format
         depth_img = self.cv_bridge.imgmsg_to_cv2(depth_msg, "16UC1")
         # first retrive depth info at gaze location (do some smoothing with a bounding
@@ -137,12 +132,10 @@ class RobodogCtrl(Node):
         pose_frame = self.pixel_to_pose(gaze_msg.gaze.x,
                                         gaze_msg.gaze.y,
                                         depth)
-        print(pose_frame)
-        # transform to map frame
-        pose_map = self.transform_pose(pose_frame, "map")
-        print(pose_map)
-        return pose_map
+        # set frame ID for later transformation to different frames
+        pose_frame.header.frame_id = depth_msg.header.frame_id
 
+        return pose_frame
     #    ___       _ _
     #   |_ _|_ __ (_) |_
     #    | || '_ \| | __|
@@ -185,6 +178,7 @@ class RobodogCtrl(Node):
             self.robodog_depth_info_sub_callback,
             10)
         self.robodog_depth_info_sub  # prevent unused variable warning
+
     #    _   _ _   _ _
     #   | | | | |_(_) |___
     #   | | | | __| | / __|
@@ -245,26 +239,13 @@ class RobodogCtrl(Node):
     def pixel_to_pose(self, px, py, depth) -> PoseStamped:
         point = self.pixel_to_point(px, py, depth)
         pose = PoseStamped()
+        pose.header.frame_id = "odom"
         pose.header.stamp = self.get_clock().now().to_msg()
         pose.pose.position.x = point[0]
         pose.pose.position.y = point[1]
         pose.pose.position.z = point[2]
         return pose
 
-    def transform_pose(self, input_pose: PoseStamped, to_frame) -> PoseStamped:
-        """
-        Args:
-            input_pose (Pose): pose to be transformed.
-            to_frame: name of the desired frame
-            header: input pose header
-
-        Returns:
-            pose_map (Pose): transformed Pose in the new coordinate frame"""
-        try:
-            pose_map = self.tf_listener.transformPose(to_frame, input_pose)
-            return pose_map
-        except:
-            self.get_logger().warning("Transformation failed")
 
     def send_goal_pose(self, pose: PoseStamped) -> None:
         '''

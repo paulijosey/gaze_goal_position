@@ -6,7 +6,7 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/30 08:05:28 by Paul Joseph       #+#    #+#              #
-#    Updated: 2023/11/15 16:18:26 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2023/11/16 09:23:04 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -59,8 +59,8 @@ class RobodogCtrl(Node):
         self.set_depth_cam_info(msg)
 
     def robodog_ctrl_pub_callback(self) -> None:
-        # self.calc_cmd_from_gaze()
-        self.test2()
+        self.calc_cmd_from_gaze()
+        # self.test2()
 
     #    _____                 _   _
     #   |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
@@ -165,7 +165,7 @@ class RobodogCtrl(Node):
         self.robodog_ctrl_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.robodog_ctrl_pose_pub = self.create_publisher(PoseStamped, '~/goal_pose', 10)
         self.robodog_ctrl_pub_timer = self.create_timer(
-            0.01, self.robodog_ctrl_pub_callback)
+            0.1, self.robodog_ctrl_pub_callback)
 
         #   subscriber for the gaze data
         self.robodog_gaze_sub = self.create_subscription(

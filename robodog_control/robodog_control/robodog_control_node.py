@@ -6,7 +6,7 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/30 08:05:28 by Paul Joseph       #+#    #+#              #
-#    Updated: 2023/11/16 09:23:04 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2024/02/14 14:18:09 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -60,34 +60,12 @@ class RobodogCtrl(Node):
 
     def robodog_ctrl_pub_callback(self) -> None:
         self.calc_cmd_from_gaze()
-        # self.test2()
 
     #    _____                 _   _
     #   |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
     #   | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
     #   |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
     #   |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
-    def test(self):
-        pose_frame = PoseStamped()
-        pose_frame.header.frame_id = "odom"
-        pose_frame.header.stamp = self.get_clock().now().to_msg()
-        pose_frame.pose.position.x = random.uniform(-0.5, 0.5)
-        pose_frame.pose.position.y = random.uniform(-2.5, 2.5)
-        pose_frame.pose.position.z = 0.0
-        # print(pose_map)
-        self.send_goal_pose(pose_frame)
-
-    def test2(self):
-        if (not self.robodog_gaze_queue.empty() and
-            not self.robodog_depth_queue.empty() and
-                self.depth_cam_info != None):
-            # get data from queue
-            gaze_msg = self.robodog_gaze_queue.get()
-            depth_msg = self.robodog_depth_queue.get()
-            gaze_offset = self.calc_gaze_offset(gaze_msg)
-            twist = self.calc_twist_from_offset(gaze_offset)
-            self.robodog_ctrl_pub.publish(twist)
-
     def calc_cmd_from_gaze(self) -> None:
         ''' 
         Calculate the neccessary ROS Twist input message to 
@@ -103,7 +81,11 @@ class RobodogCtrl(Node):
             self.send_goal_pose(frame_pose)
 
     def calc_gaze_offset(self, gaze: GazeStamped) -> np.ndarray:
-        # calc center point of image
+        """
+        calc center point of image. Currently not used but could be 
+        useful for just Twist commands to rotate the robot.
+        """
+
         center = {
             "x": gaze.image_size.width/2,
             "y": gaze.image_size.height/2
@@ -139,7 +121,7 @@ class RobodogCtrl(Node):
             round(gaze_msg.gaze.y-w/2):round(gaze_msg.gaze.y+w/2)]
 
         # and take the average of all valid (non-zero) points
-        depth = float(np.mean(small_box[np.nonzero(small_box)]))
+        depth = float(np.median(small_box[np.nonzero(small_box)]))
 
         pose_frame = self.pixel_to_pose(gaze_msg.gaze.x,
                                         gaze_msg.gaze.y,
@@ -161,8 +143,7 @@ class RobodogCtrl(Node):
     def init_ros(self) -> None:
         #   use cv bridge to handle cv2 to ROS convertion
         self.cv_bridge = CvBridge()
-        #   publisher for robodog contorl (TODO)
-        self.robodog_ctrl_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        #   publisher for robodog contorl 
         self.robodog_ctrl_pose_pub = self.create_publisher(PoseStamped, '~/goal_pose', 10)
         self.robodog_ctrl_pub_timer = self.create_timer(
             0.1, self.robodog_ctrl_pub_callback)
@@ -199,7 +180,7 @@ class RobodogCtrl(Node):
 
     def queue_msg(self, msg, queue) -> None:
         '''
-        Queue incoming ROS messages in queues for later use
+        Queue incoming ROS messages for later use
         '''
         # check if we are full
         if (queue.qsize() >= self.max_queue_size):
@@ -215,9 +196,6 @@ class RobodogCtrl(Node):
     def get_gaze_from_msg(self, msg: GazeStamped) -> np.ndarray:
         gaze = [msg.gaze.x, msg.gaze.y]
         return gaze
-
-    def publish_cmd_vel_msg(self, cmd_msg, publisher) -> None:
-        publisher.publish(cmd_msg)
 
     def pixel_to_point(self, px, py, depth) -> tuple[float, float, float]:
         """Converts a specific pixel to a metric 3D point in the camera frame
@@ -251,7 +229,8 @@ class RobodogCtrl(Node):
     def pixel_to_pose(self, px, py, depth) -> PoseStamped:
         point = self.pixel_to_point(px, py, depth)
         pose = PoseStamped()
-        pose.header.frame_id = "odom"
+        # pose.header.frame_id = "odom"
+        pose.header.frame_id = "camera_aligned_depth_to_color_frame"
         pose.header.stamp = self.get_clock().now().to_msg()
         pose.pose.position.x = point[0]
         pose.pose.position.y = point[1]

@@ -6,7 +6,7 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/30 09:12:35 by Paul Joseph       #+#    #+#              #
-#    Updated: 2023/10/31 09:27:19 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2024/01/30 12:29:20 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -16,6 +16,8 @@ import torch
 import cv2
 import numpy as np
 from queue import Queue 
+import time
+import csv
 
 # ROS imports
 import rclpy
@@ -81,6 +83,10 @@ class GazeTransform(Node):
         if (not self.glasses_gaze_queue.empty() and 
             not self.glasses_cam_queue.empty() and 
             not self.robodog_cam_queue.empty()):
+
+             # Get the start time
+            t1 = time.time()
+
             # get images from ROS message
             glasses_img = self.get_img_from_msg(self.glasses_cam_queue.get())
             robodog_img = self.get_img_from_msg(self.robodog_cam_queue.get())
@@ -144,6 +150,15 @@ class GazeTransform(Node):
             robodog_gaze = self.transform_gaze(h, glasses_gaze)
             # publish gaze as ros message
             self.publish_gaze_msg(robodog_gaze, self.robodog_gaze_pub)
+
+             # Get the end time
+            t2 = time.time()
+            # Calculate the duration
+            time_span = (t2 - t1)*1000
+            # Write the duration to a CSV file
+            with open('/ws/data/latency_lightglue.csv', 'a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([time_span])
 
         
     def transform_gaze(self, h: np.array, gaze: np.array) -> np.array:

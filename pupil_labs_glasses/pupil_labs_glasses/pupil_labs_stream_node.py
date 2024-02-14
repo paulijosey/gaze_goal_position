@@ -6,7 +6,7 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/04 09:00:11 by Paul Joseph       #+#    #+#              #
-#    Updated: 2023/11/16 09:24:44 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2023/11/17 12:56:50 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -18,6 +18,7 @@ import math
 # ROS imports
 import rclpy
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from sensor_msgs.msg import Image, Imu
 from gaze_msgs.msg import GazeStamped
 from cv_bridge import CvBridge
@@ -28,17 +29,31 @@ class SmartGlasses(Node):
     #    | |   / _ \| '_ \/ __| __| | | |/ __| __/ _ \| '__|
     #    | |__| (_) | | | \__ \ |_| |_| | (__| || (_) | |
     #     \____\___/|_| |_|___/\__|\__,_|\___|\__\___/|_|
-    def __init__(self, ip='10.5.50.232') -> None:
+    def __init__(self) -> None:
         super().__init__('PupilLabsStream')
-        self.ip = ip
+        self.inti_ros()
+
+        # init variables
+        self.ip = self.get_parameter('ip_addr').get_parameter_value().string_value
         self.port = 8080  # this might change ... but keep it hardcoded for now
         self.recording_id = ''
+
+        print(self.ip)
 
         # init connection (this will init self.device)
         asyncio.run(self.neon_companion_network_conf())
         # Get device status and info (this will init self.cam_outward & self.gaze)
         asyncio.run(self.get_neon_companion_info())
-
+ 
+    #    ___       _ _   
+    #   |_ _|_ __ (_) |_ 
+    #    | || '_ \| | __|
+    #    | || | | | | |_ 
+    #   |___|_| |_|_|\__|
+    def inti_ros(self):
+        '''
+        Init everything ROS related here. (pub/sub/parameters)
+        '''
         # init ROS stuff
         #   use cv bridge to handle cv2 to ROS convertion
         self.cv_bridge = CvBridge()
@@ -48,6 +63,13 @@ class SmartGlasses(Node):
         self.gaze_pub = self.create_publisher(GazeStamped, 'gaze', 10)
         #   publisher for the imu data
         self.imu_pub = self.create_publisher(Imu, 'imu', 10)
+        #   parameters
+        self.declare_parameters(
+            namespace='',
+            parameters=[
+                ('ip_addr', '10.5.51.42')
+            ]
+        )
 
     #    _   _      _                      _    _
     #   | \ | | ___| |___      _____  _ __| | _(_)_ __   __ _
@@ -55,7 +77,6 @@ class SmartGlasses(Node):
     #   | |\  |  __/ |_ \ V  V / (_) | |  |   <| | | | | (_| |
     #   |_| \_|\___|\__| \_/\_/ \___/|_|  |_|\_\_|_| |_|\__, |
     #                                                   |___/
-
     async def neon_companion_network_conf(self) -> None:
         '''
         Connect this python instance to the host device (aka phone)
@@ -64,7 +85,8 @@ class SmartGlasses(Node):
         ip address given.
         '''
         async with Network() as network:
-            self.device = await network.wait_for_new_device(timeout_seconds=5)
+            # self.device = await network.wait_for_new_device(timeout_seconds=5)
+            self.device = None
 
         if self.device is None:
             print("No device found. Using given IP for manual override")
@@ -90,20 +112,20 @@ class SmartGlasses(Node):
         '''
         async with Device.from_discovered_device(self.device) as device:
             status = await device.get_status()
-            print(f"Phone IP address: {status.phone.ip}")
-            print(f"Battery level: {status.phone.battery_level}%")
+            self.get_logger().info(f"Phone IP address: {status.phone.ip}")
+            self.get_logger().info(f"Battery level: {status.phone.battery_level}%")
 
-            print(f"Connected glasses: SN {status.hardware.glasses_serial}")
-            print(f"Connected scene camera: SN {status.hardware.world_camera_serial}")
+            self.get_logger().info(f"Connected glasses: SN {status.hardware.glasses_serial}")
+            self.get_logger().info(f"Connected scene camera: SN {status.hardware.world_camera_serial}")
     
             self.cam_outward = status.direct_world_sensor()
-            print(f"World sensor: connected={self.cam_outward.connected} url={self.cam_outward.url}")
+            self.get_logger().info(f"World sensor: connected={self.cam_outward.connected} url={self.cam_outward.url}")
     
             self.imu = status.direct_imu_sensor()
-            print(f"IMU sensor: connected={self.imu.connected} url={self.imu.url}")
+            self.get_logger().info(f"IMU sensor: connected={self.imu.connected} url={self.imu.url}")
 
             self.gaze = status.direct_gaze_sensor()
-            print(f"Gaze sensor: connected={self.gaze.connected} url={self.gaze.url}")
+            self.get_logger().info(f"Gaze sensor: connected={self.gaze.connected} url={self.gaze.url}")
 
     #   ____        _          ____  _                                
     #  |  _ \  __ _| |_ __ _  / ___|| |_ _ __ ___  __ _ _ __ ___  ___ 
@@ -242,7 +264,6 @@ class SmartGlasses(Node):
             else:
                 item = next_item
 
-
     async def get_closest_item(self, queue, timestamp):
         item_ts, item = await queue.get()
         # assumes monotonically increasing timestamps
@@ -265,9 +286,8 @@ def main(args=None):
     # init for all ROS things
     rclpy.init(args=args)
 
-    # init glasses (give an IP address if necessary! 
-    #  check in neon companion android app)
-    glasses = SmartGlasses(ip='10.5.59.215')
+    # init glasses
+    glasses = SmartGlasses()
     # Publish cam, gaze and IMU data
     asyncio.run(glasses.stream_data())
 

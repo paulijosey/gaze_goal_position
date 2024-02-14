@@ -2,21 +2,26 @@ launch:
 
 
 # realsense2 launch params
+# - arg:
+#     name: "enable_rgbd"
+#     default: "true"
+# - arg:
+#     name: "enable_sync"
+#     default: "true"
+# - arg:
+#     name: "align_depth.enable"
+#     default: "true"
+# - arg:
+#     name: "enable_color"
+#     default: "true"
+# - arg:
+#     name: "enable_depth"
+#     default: "true"
+
+# pupillabs launch parameters
 - arg:
-    name: "enable_rgbd"
-    default: "true"
-- arg:
-    name: "enable_sync"
-    default: "true"
-- arg:
-    name: "align_depth.enable"
-    default: "true"
-- arg:
-    name: "enable_color"
-    default: "true"
-- arg:
-    name: "enable_depth"
-    default: "true"
+    name: "pupillabs_ip_addr"
+    default: "10.0.1.1"
 
 # include realsense launch file
 - group:
@@ -28,6 +33,10 @@ launch:
     exec: "pupil_labs_stream_node"
     name: "pupil_labs_glasses"
     namespace: "smart_glasses"
+    param: 
+    -
+        name: "ip_addr"
+        value: "$(var pupillabs_ip_addr)"
 
 - node:
     pkg: "gaze_transform_lightglue"

@@ -15,3 +15,9 @@ launch:
     -
         name: "ip_addr"
         value: "$(var pupillabs_ip_addr)"
+
+- node:
+    pkg: "gaze_transform"
+    exec: "gaze_viz_node"
+    name: "gaze_viz"
+    namespace: ""

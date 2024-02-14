@@ -6,7 +6,7 @@
 /*   By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/10/06 08:52:10 by Paul Joseph       #+#    #+#             */
-/*   Updated: 2023/10/31 09:26:50 by Paul Joseph      ###   ########.fr       */
+/*   Updated: 2024/01/30 09:17:45 by Paul Joseph      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -26,6 +26,7 @@
 #include <cmath>
 #include <cstdio>
 #include <queue>
+#include <fstream>
 
 // ROS stuff imports
 #include "rclcpp/rclcpp.hpp"
@@ -148,12 +149,15 @@ private:
 
 	void match_gaze()
 	{
+
 		// convert ros images to opencv and get gaze info
 		// but first check if the image buffers are not empty
 		if (!glassesCamBuf.empty() &&
 			!robodogCamBuf.empty() &&
 			!glassesGazeBuf.empty())
 		{
+			// Get the start time
+			std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 			try
 			{
 				// convert everything to opencv objects because they are easier to
@@ -245,6 +249,16 @@ private:
 					publish_gaze(robodogGazeCv, robodogGazePub);
 				}
 			}
+
+			// Get the end time
+			std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+			// Calculate the duration
+			std::chrono::duration<double, std::milli> time_span = t2 - t1;
+			// Write the duration to a CSV file
+			std::ofstream file;
+			file.open("/ws/data/latency_surf.csv", std::ios_base::app); // append instead of overwrite
+			file << time_span.count() << "\n";
+			file.close();
 		}
 	}
 

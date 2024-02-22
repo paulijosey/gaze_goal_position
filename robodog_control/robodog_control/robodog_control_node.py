@@ -6,7 +6,7 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/30 08:05:28 by Paul Joseph       #+#    #+#              #
-#    Updated: 2024/02/14 14:18:09 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2024/02/22 09:34:09 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -78,7 +78,8 @@ class RobodogCtrl(Node):
             gaze_msg = self.robodog_gaze_queue.get()
             depth_msg = self.robodog_depth_queue.get()
             frame_pose = self.calc_gaze_to_frame(depth_msg, gaze_msg)
-            self.send_goal_pose(frame_pose)
+            if frame_pose != None:
+                self.send_goal_pose(frame_pose)
 
     def calc_gaze_offset(self, gaze: GazeStamped) -> np.ndarray:
         """
@@ -112,20 +113,18 @@ class RobodogCtrl(Node):
         ROS msg) and the depth data (also ROS msg)
         '''
         # convert depth image to usable format
-        depth_img = self.cv_bridge.imgmsg_to_cv2(depth_msg, "16UC1")
-        # first retrive depth info at gaze location (do some smoothing with a bounding
-        # box around that pixel)
-        w = 10  # width of the bounding box
-        small_box = depth_img[
-            round(gaze_msg.gaze.x-w/2):round(gaze_msg.gaze.x+w/2),
-            round(gaze_msg.gaze.y-w/2):round(gaze_msg.gaze.y+w/2)]
+        depth_img = self.cv_bridge.imgmsg_to_cv2(depth_msg, "32FC1")
+        # use try catch in case gaze is out of bounds of image
+        try:
+            # damn it opencv uses (y,x) instead of (x,y) for indexing
+            depth = depth_img[round(gaze_msg.gaze.y), round(gaze_msg.gaze.x)]
+            pose_frame = self.pixel_to_pose(gaze_msg.gaze.x,
+                                            gaze_msg.gaze.y,
+                                            depth)
+        except:
+            self.get_logger().info("Could not calculate pose")
+            return None
 
-        # and take the average of all valid (non-zero) points
-        depth = float(np.median(small_box[np.nonzero(small_box)]))
-
-        pose_frame = self.pixel_to_pose(gaze_msg.gaze.x,
-                                        gaze_msg.gaze.y,
-                                        depth)
         # set frame ID for later transformation to different frames
         pose_frame.header.frame_id = depth_msg.header.frame_id
 
@@ -220,9 +219,8 @@ class RobodogCtrl(Node):
         ppy = self.depth_cam_info.k[5]
         Z = depth / 1000
 
-        X = float((px - ppx) / fx * Z)
-        Y = float((py - ppy) / fy * Z)
-        Z = float(Z)
+        X = (px - ppx) / fx * Z
+        Y = (py - ppy) / fy * Z
 
         return X, Y, Z
 

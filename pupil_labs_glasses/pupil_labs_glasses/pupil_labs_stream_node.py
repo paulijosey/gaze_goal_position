@@ -6,7 +6,7 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/04 09:00:11 by Paul Joseph       #+#    #+#              #
-#    Updated: 2023/11/17 12:56:50 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2024/02/21 13:36:12 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -121,6 +121,9 @@ class SmartGlasses(Node):
             self.cam_outward = status.direct_world_sensor()
             self.get_logger().info(f"World sensor: connected={self.cam_outward.connected} url={self.cam_outward.url}")
     
+            self.cam_eyes = status.direct_eyes_sensor()
+            self.get_logger().info(f"Eye sensor: connected={self.cam_eyes.connected} url={self.cam_eyes.url}")
+
             self.imu = status.direct_imu_sensor()
             self.get_logger().info(f"IMU sensor: connected={self.imu.connected} url={self.imu.url}")
 
@@ -235,6 +238,12 @@ class SmartGlasses(Node):
                 self.imu_pub.publish(imu_msg)
         finally:
             process_imu.cancel()
+
+    async def stream_blink_signal(self) -> None:
+        '''
+        detect rapid 3 blinks and publish a signal
+        '''
+        return
 
     async def stream_data(self) -> None:
         await asyncio.gather(

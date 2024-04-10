@@ -6,7 +6,7 @@
 #    By: Paul Joseph <paul.joseph@pbl.ee.ethz.ch    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/10/04 09:00:11 by Paul Joseph       #+#    #+#              #
-#    Updated: 2024/02/21 13:36:12 by Paul Joseph      ###   ########.fr        #
+#    Updated: 2024/04/04 15:35:56 by Paul Joseph      ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -19,7 +19,7 @@ import math
 import rclpy
 from rclpy.node import Node
 from rclpy.parameter import Parameter
-from sensor_msgs.msg import Image, Imu
+from sensor_msgs.msg import Image, Imu, CameraInfo
 from gaze_msgs.msg import GazeStamped
 from cv_bridge import CvBridge
 
@@ -44,6 +44,7 @@ class SmartGlasses(Node):
         asyncio.run(self.neon_companion_network_conf())
         # Get device status and info (this will init self.cam_outward & self.gaze)
         asyncio.run(self.get_neon_companion_info())
+        asyncio.run(self.set_calibration())
  
     #    ___       _ _   
     #   |_ _|_ __ (_) |_ 
@@ -59,6 +60,8 @@ class SmartGlasses(Node):
         self.cv_bridge = CvBridge()
         #   publisher for pretty pictures
         self.cam_outward_pub = self.create_publisher(Image, 'cam_outward', 10)
+        #   publisher for the camera info
+        self.cam_outward_info_pub = self.create_publisher(CameraInfo, 'cam_outward_info', 10)
         #   publisher for the gaze data
         self.gaze_pub = self.create_publisher(GazeStamped, 'gaze', 10)
         #   publisher for the imu data
@@ -130,6 +133,33 @@ class SmartGlasses(Node):
             self.gaze = status.direct_gaze_sensor()
             self.get_logger().info(f"Gaze sensor: connected={self.gaze.connected} url={self.gaze.url}")
 
+
+    async def set_calibration(self) -> None:
+        '''
+        Set the calibration for the glasses
+        '''
+        async with Device.from_discovered_device(self.device) as device:
+            self.calibration = await device.get_calibration()
+            # hacky parsing of calibration data (only need to do this once)
+            k = []
+            for i in range(3):
+                for j in range(3):
+                    k.append(self.calibration['scene_camera_matrix'][0][i][j])
+            d = []
+            for i in range(8):
+                d.append(self.calibration['scene_distortion_coefficients'][0][i])
+            # transform to ROS2 camera info messages
+            #   scene camera
+            self.cam_outward_info = CameraInfo()
+            self.cam_outward_info.header.frame_id = "scene_camera"
+            self.cam_outward_info.width = 1600
+            self.cam_outward_info.height = 1200
+            self.cam_outward_info.distortion_model = "plumb_bob"    # might be wrong
+            self.cam_outward_info.d = d
+            self.cam_outward_info.k = k
+
+        return
+
     #   ____        _          ____  _                                
     #  |  _ \  __ _| |_ __ _  / ___|| |_ _ __ ___  __ _ _ __ ___  ___ 
     #  | | | |/ _` | __/ _` | \___ \| __| '__/ _ \/ _` | '_ ` _ \/ __|
@@ -184,6 +214,11 @@ class SmartGlasses(Node):
                 gaze_msg.image_size.height = cam_outward_msg.height
                 gaze_msg.image_size.width = cam_outward_msg.width
                 self.gaze_pub.publish(gaze_msg)
+
+                # also publish the camera info here
+                if self.cam_outward_info is not None:
+                    self.cam_outward_info.header.stamp = timestamp
+                    self.cam_outward_info_pub.publish(self.cam_outward_info)
         finally:
             process_cam_outward.cancel()
             process_gaze.cancel()

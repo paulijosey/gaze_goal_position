@@ -8,6 +8,13 @@ USER root
 #     && cd real-time-blink-detection \
 #     && pip install -e .
 
+RUN mkdir -p /python_packages \
+    && cd /python_packages \
+    && git clone https://github.com/paulijosey/realtime-python-api.git \
+    && cd realtime-python-api \
+    && git checkout fix/imuData \
+    && pip install -e .
+
 WORKDIR $ROS_WS
 COPY pupil_labs_glasses $ROS_WS/src/pupil_labs_glasses/
 RUN cd $ROS_WS/src/ && \

@@ -7,9 +7,6 @@ the RoboDog. The main focus lies on Smartglasses/VR/AR Glasses.
 ## Installation
 All packages here are ROS(2) packages so installing them means just cloning this repo 
 in your ROS(2) workspace and running "colcon build".
-I recommend using the pre made ROS devcontainers from 
-https://git.ee.ethz.ch/pbl/pbl-templates/ros_devcontainer. Doing so you do not 
-have to manually install dependencies.
 
 Here is a list with the ubuntu and python dependencies if you want to build 
 locally (or deploy on a system):
